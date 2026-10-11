@@ -43,11 +43,11 @@ class Vegetation:
             z_coords
         ))
 
-        dx = vegetation_positions[:, 0] - parent.town.raw_center.x
-        dy = vegetation_positions[:, 1] - parent.town.raw_center.y
+        dx = vegetation_positions[:, 0] - parent.town_raw_center.x
+        dy = vegetation_positions[:, 1] - parent.town_raw_center.y
         distances = np.sqrt(dx ** 2 + dy ** 2)
 
-        spawn_probability = (distances - parent.town.radius * 1.2) / self.fade_out_range
+        spawn_probability = (distances - parent.town_radius * 1.2) / self.fade_out_range
         spawn_probability = np.clip(spawn_probability, 0.0, 1.0)
         final_probability = spawn_probability * self.base_density
 
@@ -69,7 +69,6 @@ class Vegetation:
             model.set_color_scale(*self.color_scale, 1)
 
         model.flatten_light()
-        # model.reparent_to(base.render)
         model.reparent_to(parent)
         model.set_pos(0, 0, 0)
         model.set_hpr(0, 0, 0)

@@ -110,7 +110,8 @@ class Tree:
             hpr = Vec3(random.uniform(0, 360), 0, 0)
             raw_pos = Point3(*vert, 0) * parent.island.size
 
-            if (z := parent.island.top_island.get_terrain_z(raw_pos.x, raw_pos.y) - 3) >= 0:
+            if (z := parent.island.top_island.get_terrain_z(raw_pos.x, raw_pos.y) - 1) >= 0:
+            # if (z := parent.island.top_island.get_terrain_z(raw_pos.x, raw_pos.y) - 3) >= 0:
                 tree = model.copy_to(parent)
                 tree_pos = Point3(raw_pos.xy, z) + parent.offset
                 tree.set_pos_hpr_scale(tree_pos, hpr, self.scale)
@@ -124,7 +125,7 @@ class Tree:
                     tree_pos + shape_offset))
 
 
-class Town(Polygon2DMixin, ProcessHeightmapMixin):
+class TownBuilder(Polygon2DMixin, ProcessHeightmapMixin):
 
     def __init__(self, tree, town_area_vertices=10, building_max_stories=4,
                  tree_num=20, tree_circle_rad=1.05):
@@ -153,8 +154,8 @@ class Town(Polygon2DMixin, ProcessHeightmapMixin):
         center, radius, vertices = self.find_convex_polygon_in_irregular_region(
             heightfield_img, vertex_cnt=self.town_verts)
 
-        self.raw_center = Point3(*center, 0)
-        self.radius = radius
+        raw_center = Point3(*center, 0)
+        radius = radius
 
         region = np.array(vertices, dtype=np.float64) / parent.island.img_size
         sites = np.array([pt for pt in VoronoiSitesGenerator(region)])
@@ -171,6 +172,8 @@ class Town(Polygon2DMixin, ProcessHeightmapMixin):
             self.create_building(parent, sorted_pts, i)
 
         self.plant_trees(parent, heightfield_img)
+
+        return raw_center, radius
 
     def plant_trees(self, parent, heightfield_img):
         _, _, region = self.find_convex_polygon_in_irregular_region(
