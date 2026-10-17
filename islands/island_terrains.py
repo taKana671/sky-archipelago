@@ -4,12 +4,12 @@ import cv2
 from panda3d.bullet import BulletHeightfieldShape, ZUp
 from panda3d.core import GeoMipTerrain
 from panda3d.core import NodePath, PandaNode
-from panda3d.core import PNMImage
-from panda3d.core import Point3, Vec3, Vec4, Texture
+from panda3d.core import PNMImage, Texture
+from panda3d.core import Point3, Vec3, Vec4
 from panda3d.core import SamplerState, TransformState
 from panda3d.core import Shader, ShaderTerrainMesh
 
-from texture_generator.heightmap_generator.heightmap_processing import ProcessHeightmapMixin
+from texture_generator.heightmap_generator import ProcessHeightmapMixin
 
 
 class ImageAssets(StrEnum):

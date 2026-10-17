@@ -6,7 +6,7 @@ from panda3d.core import Point3, Vec3, TransformState
 from panda3d.core import TextureStage
 
 from shapes import RandomPolygonalPrism
-from texture_generator.heightmap_generator.heightmap_processing import ProcessHeightmapMixin
+from texture_generator.heightmap_generator import ProcessHeightmapMixin
 from voronoi_generator.voronoi_2d import Polygon2DMixin
 from voronoi_generator.voronoi_2d import VoronoiSitesGenerator, RoundedVoronoiGenerator
 
@@ -101,7 +101,7 @@ class Tree:
 
     def __init__(self, file_path, scale):
         self.file_path = file_path
-        self.scale = scale  # Vec3(3)
+        self.scale = scale
 
     def generate(self, parent, vertices):
         model = base.loader.load_model(f'models/{self.file_path}')
@@ -111,7 +111,6 @@ class Tree:
             raw_pos = Point3(*vert, 0) * parent.island.size
 
             if (z := parent.island.top_island.get_terrain_z(raw_pos.x, raw_pos.y) - 1) >= 0:
-            # if (z := parent.island.top_island.get_terrain_z(raw_pos.x, raw_pos.y) - 3) >= 0:
                 tree = model.copy_to(parent)
                 tree_pos = Point3(raw_pos.xy, z) + parent.offset
                 tree.set_pos_hpr_scale(tree_pos, hpr, self.scale)
