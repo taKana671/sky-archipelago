@@ -69,6 +69,7 @@ class SkyArchipelago(ShowBase):
         super().__init__()
         self.disable_mouse()
         self.render.set_antialias(AntialiasAttrib.MAuto)
+        # self.set_background_color(0.68, 0.93, 0.93)
 
         self.world = BulletWorld()
         self.world.set_gravity(Vec3(0, 0, -9.81))
@@ -111,6 +112,8 @@ class SkyArchipelago(ShowBase):
         # self.world.attach(self.viewer.node())
         # self.view_from_sky()
 
+        # self.camera.set_pos(0, 0, 50000)
+        # self.camera.look_at(0, 0, 0)
         self.camera.set_pos(180, -700, 30)
         self.camLens.set_fov(30)
         self.floater = NodePath('Floater')
