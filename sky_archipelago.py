@@ -42,7 +42,7 @@ load_prc_file_data("", """
     multisamples 2""")
 
 
-DO_POSITIONING = False
+DO_POSITIONING = True
 
 
 
@@ -116,10 +116,20 @@ class SkyArchipelago(ShowBase):
         # self.camera.look_at(0, 0, 0)
         self.camera.set_pos(180, -700, 30)
         self.camLens.set_fov(30)
-        self.floater = NodePath('Floater')
+        self.floater = NodePath('floater')
         self.floater.set_pos(Point3(-84, 80, -8))
         self.floater.reparent_to(self.render)
         self.camera.look_at(self.floater)
+
+        
+        # self.walker = NodePath("walker")
+        # self.floater.set_pos(0, 2, 2)
+        # self.floater.reparent_to(self.walker)
+        # self.camera.reparent_to(self.walker)
+        # self.camera.set_pos(0, -5, 0)
+        # self.camera.reparent_to(self.walker)
+        # self.walker.reparent_to(base.render)
+
 
         self.clicked = False
         self.dragging = False
@@ -368,6 +378,7 @@ class SkyArchipelago(ShowBase):
             # case Status.SCENE_COMPLETE:
             #     self.scene.reparent_to(self.render)
             #     self.status = Status.ACTIVE
+        self.scene.sky.update(self.camera.get_pos(self.render))
 
         self.world.do_physics(dt)
         return task.cont

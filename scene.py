@@ -9,9 +9,9 @@ from panda3d.core import TransparencyAttrib
 from panda3d.core import AmbientLight, DirectionalLight
 
 from islands.island_terrains import GeoMipIsland, ShaderMeshIsland
-from islands.vegetation import Vegetation
 from islands.town_builder import TownBuilder, Tree
-from shapes import Plane
+from islands.vegetation import Vegetation
+from shapes import Plane, Sphere
 
 
 class SkyIsland(NodePath):
@@ -89,51 +89,76 @@ class ShaderMeshSkyIsland(SkyIsland):
         vegetation.generate(self, img)
 
 
-class SkyVolumeSea(NodePath):
+class Clouds(NodePath):
 
-    def __init__(self):
-        super().__init__(PandaNode('sky_volume_sea'))
-        plane = Plane(
-            width=3000,
-            depth=3000,
+    def __init__(self, sun_dir, plane_center, size=6000):
+        super().__init__(PandaNode('clouds'))
+        self.plane = Plane(
+            width=size,
+            depth=size,
             segs_d=100,
-            segs_w=100,
-        ).create()
-        plane.reparent_to(self)
+            segs_w=100).create()
 
-        shader = Shader.load(Shader.SL_GLSL, 'shaders/clouds_v.glsl', f'shaders/clouds_f.glsl')
-        plane.set_shader(shader)
-
-        sun_dir = Vec3(1.0, 1.0, 0.5).normalized()
-        plane.set_shader_input('sun_direction', sun_dir)
-
-        # plane.set_shader_input('cloud_fade_start', 4500.0)
-        # plane.set_shader_input('cloud_fade_end', 5500.0)
-        plane.set_shader_input('camera', base.camera)
-        pos = Point3(-372, 1942, -300)
-        plane.set_shader_input('plane_center', pos)
-
+        self.plane.reparent_to(self)
         self.set_transparency(TransparencyAttrib.M_alpha)
+        self.setup_shader(sun_dir, plane_center)
+
+    def setup_shader(self, sun_dir, plane_center):
+        shader = Shader.load(Shader.SL_GLSL, 'shaders/clouds_v.glsl', 'shaders/clouds_f.glsl')
+        self.plane.set_shader(shader)
+
+        self.plane.set_shader_input('sun_direction', sun_dir)
+        self.plane.set_shader_input('camera', base.camera)
+        self.plane.set_shader_input('plane_center', plane_center)
+
+
+class Sky(NodePath):
+
+    def __init__(self, sun_dir):
+        super().__init__(PandaNode('sky'))
+        self.sphere = Sphere(radius=100.0).create()
+        self.sphere.reparent_to(self)
+        self.sphere.set_bin('background', 0)
+        self.sphere.set_depth_write(False)
+        self.sphere.set_light_off()
+        self.sphere.set_fog_off()
+        self.setup_shader(sun_dir)
+
+    def setup_shader(self, sun_dir):
+        shader = Shader.load(Shader.SL_GLSL, 'shaders/sky_v.glsl', 'shaders/sky_f.glsl')
+        self.sphere.set_shader(shader)
+        self.sphere.set_shader_input('sun_direction', sun_dir)
+
+    def update(self, pos):
+        self.set_pos(pos)
+
 
 class Scene(NodePath):
 
     def __init__(self):
         super().__init__(PandaNode('scene'))
-        self.setup_light()
         self.islands = [island for island in self.generate_islands()]
+        self.generate_sky()
+        self.setup_light()
 
-        # fog = Fog('scene_fog')
-        # fog.set_color(0.5, 0.6, 0.7)
-        # fog.set_exp_density(0.0005)
-        # base.render.set_fog(fog)
+    def generate_sky(self):
+        # Setup fog.
+        self.fog = Fog('scene_fog')
+        self.fog.set_color(0.65, 0.82, 0.95)
+        self.fog.set_exp_density(0.00015)
+        base.render.set_fog(self.fog)
 
+        sun_dir = Vec3(1.0, 1.0, 0.5).normalized()
+        plane_center = Point3(-372, 1942, -300)
 
-        sky_volume_sea = SkyVolumeSea()
-        
-        pos = Point3(-372, 1942, -300)  # + Vec3(-1500, -1500, 0)
+        # Create clouds.
+        clouds = Clouds(sun_dir, plane_center)
+        clouds.set_pos(plane_center)
+        clouds.reparent_to(self)
 
-        sky_volume_sea.set_pos(pos)
-        sky_volume_sea.reparent_to(self)
+        # Create sky.
+        self.sky = Sky(sun_dir)
+        self.sky.reparent_to(self)
 
     def generate_islands(self):
         islands_details = [
@@ -166,19 +191,3 @@ class Scene(NodePath):
         base.render.set_light(directional_light)
         directional_light.node().set_shadow_caster(True)
         base.render.set_shader_auto()
-
-    # def generate_islands(self):
-    #     islands_details = [
-    #         ('16bit_island_heightmap_1.png', Point3(15, -515, -45), Vec3(545, 0, 0), dict(max_stories=3)),
-    #         ('16bit_island_heightmap_2.png', Point3(-10, 30, 0), Vec3(0, 0, 0), None),
-    #         ('16bit_island_heightmap_3.png', Point3(-734, 1096, 160), Vec3(270, 0, 0), None),
-    #         ('16bit_island_heightmap_4.png', Point3(-1609, 4400, 635), Vec3(100, 0, 0), None)
-    #     ]
-
-    #     for i, (file_name, pos, hpr, extra_args) in enumerate(islands_details):
-    #         kwargs = extra_args if extra_args is not None else {}
-    #         island = ShaderMeshSkyIsland(f'island_{i}', f'images/{file_name}', **kwargs)
-    #         island.set_pos_hpr(pos, hpr)
-    #         island.reparent_to(base.render)
-    #         base.world.attach(island.node())
-    #         yield island
