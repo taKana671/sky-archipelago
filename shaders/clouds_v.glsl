@@ -5,6 +5,7 @@ in vec2 p3d_MultiTexCoord0;
 
 uniform mat4 p3d_ModelViewProjectionMatrix;
 uniform mat4 p3d_ModelMatrix;
+uniform mat4 p3d_ModelViewMatrix;
 
 out vec2 terrain_uv;
 out vec3 vtx_pos;

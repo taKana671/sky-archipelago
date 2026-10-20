@@ -8,7 +8,13 @@ uniform vec3 sun_direction;
 uniform mat4 p3d_ViewMatrixInverse;
 uniform vec3 plane_center;
 
+uniform struct {
+    vec4 color;
+    float density;
+} p3d_Fog;
+
 out vec4 p3d_FragColor;
+
 
 // Pseudorandom number generation using hash functions
 float hash(vec3 p) {
@@ -48,7 +54,7 @@ float fbm(vec3 p) {
 // Density function
 float getCloudDensity(vec3 pos) {
     vec3 sample_pos = pos * 0.02;
-    float d = fbm(sample_pos) - 0.45; 
+    float d = fbm(sample_pos) - 0.42; 
 
     // Thickness control (z from -300 to 500)
     float height_fade = smoothstep(-500.0, -450.0, pos.z) * smoothstep(-300.0, -320.0, pos.z);
@@ -56,7 +62,8 @@ float getCloudDensity(vec3 pos) {
 
     // Circular fade-out (Precisely cropped based on the distance from the center coordinates of the Plane)
     float dist = length(pos.xy - plane_center.xy);
-    float world_fade = smoothstep(1400.0, 1100.0, dist);
+    // float world_fade = smoothstep(1400.0, 1100.0, dist);
+    float world_fade = smoothstep(2800.0, 2200.0, dist);
     d *= world_fade;
 
     return max(d, 0.0);
@@ -70,8 +77,9 @@ void main() {
     vec3 ro = vtx_pos; 
     vec3 rd = normalize(vtx_pos - real_camera_pos);
 
-    int max_steps = 45;       
-    float step_size = 4.5;    
+    // int max_steps = 45;
+    int max_steps = 55;       
+    float step_size = 4.5;  
 
     float total_density = 0.0; 
     float total_light = 0.0;   
@@ -104,13 +112,16 @@ void main() {
     }
 
     // Calculating the final cloud colors and shading
-    vec3 cloud_color = vec3(0.95, 0.96, 0.98);
-    vec3 shadow_color = vec3(0.42, 0.42, 0.52);
+    // vec3 cloud_color = vec3(0.95, 0.96, 0.98);
+    // vec3 shadow_color = vec3(0.42, 0.42, 0.52);
+    vec3 cloud_color = vec3(1.0, 1.0, 1.0);
+    vec3 shadow_color = vec3(0.62, 0.72, 0.85);
 
     // Ambient occlusion
     // Slightly darken and lower the base of the clouds depending on altitude (depth) to emphasize the sense of depth
     float height_factor = smoothstep(-300.0, -480.0, current_pos.z);
-    vec3 local_shadow_color = mix(shadow_color, shadow_color * 0.75, height_factor);
+    // vec3 local_shadow_color = mix(shadow_color, shadow_color * 0.75, height_factor);
+    vec3 local_shadow_color = mix(shadow_color, shadow_color * 0.88, height_factor);
 
     // Calculating the glow (highlights) along the edges caused by forward scattering of sunlight
     float rim = max(dot(sun_direction, -rd), 0.0);
@@ -119,5 +130,14 @@ void main() {
     // Calculate the final color after applying the two effects
     vec3 final_sky_sea = mix(local_shadow_color, highlight_color, total_light);
 
-    p3d_FragColor = vec4(final_sky_sea, total_density);
+    // Fog
+    float cloud_dist = length(current_pos - real_camera_pos);
+    float cloud_fog_factor = exp(-cloud_dist * p3d_Fog.density);
+    cloud_fog_factor = clamp(cloud_fog_factor, 0.0, 1.0);
+
+    final_sky_sea = mix(p3d_Fog.color.rgb, final_sky_sea, cloud_fog_factor);
+    float final_alpha = mix(0.0, total_density, cloud_fog_factor);
+
+    p3d_FragColor = vec4(final_sky_sea, final_alpha);
+    // p3d_FragColor = vec4(final_sky_sea, total_density);
 }

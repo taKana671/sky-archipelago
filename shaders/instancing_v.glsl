@@ -1,6 +1,7 @@
 #version 430
 
 uniform mat4 p3d_ModelViewProjectionMatrix;
+uniform mat4 p3d_ModelViewMatrix;
 
 in vec4 p3d_Vertex;
 in vec2 p3d_MultiTexCoord0;
@@ -8,6 +9,7 @@ in vec4 p3d_Color;
 
 out vec2 texcoord;
 out vec4 vertex_color;
+out vec3 vtx_view_pos;
 
 struct Instanced {
     mat4 matrix;
@@ -18,7 +20,6 @@ layout(std430) buffer instanced_object {
 };
 
 void main() {
-
     mat4 transform =  transpose(nodes[gl_InstanceID].matrix);
     vec4 vertex_position = p3d_Vertex * transform;
     vertex_color = p3d_Color;
@@ -26,4 +27,5 @@ void main() {
     gl_Position = p3d_ModelViewProjectionMatrix * vertex_position;
     texcoord = p3d_MultiTexCoord0;
 
+    vtx_view_pos = (p3d_ModelViewMatrix * p3d_Vertex).xyz;
 }

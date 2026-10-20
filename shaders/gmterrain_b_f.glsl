@@ -7,8 +7,14 @@ uniform sampler2D tex_rock3;
 uniform sampler2D tex_heightfield;
 uniform sampler2D tex_mask;
 
+uniform struct {
+    vec4 color;
+    float density;
+} p3d_Fog;
+
 in vec2 terrain_uv;
 in vec3 vtx_pos;
+in vec3 vtx_view_pos;
 
 out vec4 p3d_FragColor;
 
@@ -58,5 +64,16 @@ void main() {
     final_color = mix(final_color, color_rock2, blend_rock1_rock2);
     final_color = mix(final_color, color_rock3, blend_rock2_rock3);
 
-    p3d_FragColor = vec4(final_color.rgb, 1.0);
+    // Fog
+    // Calculate the straight-line distance from the camera.
+    float dist = length(vtx_view_pos);
+
+    float fog_factor = exp(-dist * p3d_Fog.density);
+    // If 0.45 is set to a higher value, the colors of the distant islands will appear even more vivid and saturated.
+    fog_factor = mix(0.45, 1.0, fog_factor);
+    fog_factor = clamp(fog_factor, 0.0, 1.0);
+    vec3 fogged_island_color = mix(p3d_Fog.color.rgb, final_color.rgb, fog_factor);
+
+    p3d_FragColor = vec4(fogged_island_color, 1.0);
+    // p3d_FragColor = vec4(final_color.rgb, 1.0);
 }
