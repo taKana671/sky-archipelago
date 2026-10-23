@@ -1,7 +1,6 @@
 import itertools
 import sys
-import types
-from enum import Enum, auto
+from enum import Enum, auto, IntEnum
 
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.ShowBaseGlobal import globalClock
@@ -9,7 +8,8 @@ from direct.showbase.InputStateGlobal import inputState
 from direct.interval.IntervalGlobal import Sequence, Func
 from direct.stdpy import threading
 from panda3d.bullet import BulletWorld, BulletDebugNode
-from panda3d.core import Point3, Vec3, Vec2
+from panda3d.core import Point3, Vec3, Vec2, Quat
+from panda3d.core import Quat, look_at
 from panda3d.core import NodePath
 from panda3d.core import AntialiasAttrib, TransparencyAttrib
 from panda3d.core import load_prc_file_data
@@ -42,8 +42,7 @@ load_prc_file_data("", """
     multisamples 2""")
 
 
-DO_POSITIONING = True
-
+DO_POSITIONING = False
 
 
 class Status(Enum):
@@ -63,13 +62,23 @@ class View(Enum):
     GROUND = auto()
 
 
+class Mode(IntEnum):
+
+    FIXED_CAMERA = 1
+    FOLLOW_CAMERA = 2
+    ROTATE_CAMERA = 3
+
+    @classmethod
+    def convert_to_str(cls):
+        return ', '.join([f'{mem.name}: {mem.value}' for mem in cls])
+
+
 class SkyArchipelago(ShowBase):
 
-    def __init__(self):
+    def __init__(self, mode=1):
         super().__init__()
         self.disable_mouse()
         self.render.set_antialias(AntialiasAttrib.MAuto)
-        # self.set_background_color(0.68, 0.93, 0.93)
 
         self.world = BulletWorld()
         self.world.set_gravity(Vec3(0, 0, -9.81))
@@ -78,76 +87,33 @@ class SkyArchipelago(ShowBase):
 
         self.scene = Scene()
         self.scene.reparent_to(self.render)
-        self.camera_root = NodePath('camera_root')
-        self.camera_root.reparent_to(self.render)
 
-        # self.sky_config = types.SimpleNamespace(
-        #     parent=self.camera_root,
-        #     pos=Point3(-500, -500, 150),
-        #     # pos=Point3(400.0, -750.0, 450.0),
-        #     # pos=Point3(400.0, -600.0, 200.0),
-        #     # pos=Point3(-98, -76, -20),
-
-        #     look_at=Point3(0, 0, 0),
-        #     # look_at=Point3(0.0, -50.0, 0.0),
-        #     # look_at=Point3(70.0, 40.0, 30.0),
-
-        #     fov=30,
-        #     near=1,
-        #     switch_func=self.view_from_sky
-        # )
-
-        self.ground_config = types.SimpleNamespace(
-            parent=self.render,
-            # pos=Point3(-140, -140, 2),
-            pos=Point3(-98, -76, -20),
-            look_at=Point3(0, 0, 0),
-            fov=90,
-            near=0.1,
-            switch_func=self.view_while_moving
-        )
-
-        # self.viewer = Viewer()
-        # self.viewer.reparent_to(self.render)
-        # self.world.attach(self.viewer.node())
-        # self.view_from_sky()
-
-        # self.camera.set_pos(0, 0, 50000)
-        # self.camera.look_at(0, 0, 0)
-        self.camera.set_pos(180, -700, 30)
-        self.camLens.set_fov(30)
-        self.floater = NodePath('floater')
-        self.floater.set_pos(Point3(-84, 80, -8))
-        self.floater.reparent_to(self.render)
-        self.camera.look_at(self.floater)
-
-        
-        # self.walker = NodePath("walker")
-        # self.floater.set_pos(0, 2, 2)
-        # self.floater.reparent_to(self.walker)
-        # self.camera.reparent_to(self.walker)
-        # self.camera.set_pos(0, -5, 0)
-        # self.camera.reparent_to(self.walker)
-        # self.walker.reparent_to(base.render)
+        self.mode = mode
+        self.initialize_for_mode()
 
 
+        # self.status = Status.SCENE_CREATE
+        self.status = Status.ACTIVE
+        self.view = View.SKY
+
+        self.accept('escape', sys.exit)
+        self.accept('t', self.toggle_debug)
+        self.accept('w', self.toggle_wireframe)
+
+        if DO_POSITIONING:
+            self.setup_positioning()
+
+        self.taskMgr.add(self.update, 'update')
+
+    def init_rotate_camera_mode(self):
+        self.accept('mouse1', self.mouse_click)
+        self.accept('mouse1-up', self.mouse_release)
         self.clicked = False
         self.dragging = False
         self.before_mouse_pos = None
         self.screen_changed = False
 
-        self.status = Status.SCENE_CREATE
-        self.status = Status.ACTIVE
-        self.view = View.SKY
-
-        self.accept('escape', sys.exit)
-        self.accept('mouse1', self.mouse_click)
-        self.accept('mouse1-up', self.mouse_release)
-        self.accept('t', self.toggle_debug)
-        self.accept('v', self.toggle_view)
-        self.accept('w', self.toggle_wireframe)
-
-        # viewer control
+    def init_follow_camera_mode(self):
         inputState.watch_with_modifiers(Motions.FORWARD, 'arrow_up')
         inputState.watch_with_modifiers(Motions.BACKWARD, 'arrow_down')
         inputState.watch_with_modifiers(Motions.LEFT, 'arrow_left')
@@ -155,16 +121,77 @@ class SkyArchipelago(ShowBase):
         inputState.watch_with_modifiers(Motions.DOWN, 'd')
         inputState.watch_with_modifiers(Motions.UP, 'u')
 
-        if DO_POSITIONING:
-            self.setup_positioning()
+    def get_hpr_from_lookat(self, current_pos, target_pos):
+        direction = target_pos - current_pos
+        quat = Quat()
+        look_at(quat, direction, Vec3.up())
+        hpr = quat.get_hpr()
+        return hpr
 
-        self.taskMgr.add(self.update, 'update')
+    def setup_fixed_camera(self, camera_pos, look_pos, fov):
+        self.camera.set_pos(camera_pos)
+        self.floater = NodePath('floater')
+        self.floater.set_pos(look_pos)
+        self.floater.reparent_to(self.render)
+        self.camera.look_at(self.floater)
+        self.camLens.set_fov(fov)
+
+    def setup_follow_camera(self, camera_pos, look_pos, fov):
+        hpr = self.get_hpr_from_lookat(camera_pos, look_pos)
+        self.viewer = Viewer()
+        self.viewer.set_pos_hpr(camera_pos, hpr)
+        self.viewer.reparent_to(self.render)
+        self.camera.reparent_to(self.viewer)
+        self.camLens.set_fov(fov)
+
+    def setup_rotate_camera(self, camera_pos, look_pos, fov, near=1):
+        self.camera_root = NodePath('camera_root')
+        self.camera_root.reparent_to(self.render)
+
+        self.camera.reparent_to(self.camera_root)
+        self.camera.set_pos(camera_pos)
+        self.camera.look_at(look_pos)
+
+        self.camLens.set_fov(fov)
+        self.camLens.set_near_far(near, 100000)
+
+    def initialize_for_mode(self):
+        fov = 30
+
+        match self.mode:
+            case Mode.FIXED_CAMERA | Mode.FOLLOW_CAMERA:
+                camera_pos = Point3(180, -700, 30)
+                look_pos = Point3(-84, 80, -8)
+
+                if self.mode == Mode.FIXED_CAMERA:
+                    self.setup_fixed_camera(camera_pos, look_pos, fov)
+                else:
+                    self.setup_follow_camera(camera_pos, look_pos, fov)
+                    self.init_follow_camera_mode()
+
+            case Mode.ROTATE_CAMERA:
+                camera_pos = Point3(-400, -400, 200)
+                look_pos = Point3(0, 0, 0)
+                self.setup_rotate_camera(camera_pos, look_pos, fov)
+                self.init_rotate_camera_mode()
+
+            case _:
+                raise ValueError(
+                    f'Invalid value: {self.mode}; '
+                    f'Valid values: {Mode.convert_to_str()}.'
+                )
 
     def setup_positioning(self):
+        if self.mode != Mode.FIXED_CAMERA:
+            raise ValueError(
+                'To position an object, '
+                f'specify mode {Mode.FIXED_CAMERA.value} ({Mode.FIXED_CAMERA.name})'
+            )
+
         targets = [
             ('floater', self.floater),
             ('camera', self.camera),
-            *[(f'island_{i}', island) for i, island in enumerate(self.scene.islands)]
+            *[(name, island) for name, island in self.scene.islands.items()]
         ]
         self.positioning_targets = itertools.cycle(targets)
         self.change_positioning_target()
@@ -222,59 +249,59 @@ class SkyArchipelago(ShowBase):
         else:
             self.debug.hide()
 
-    def toggle_view(self):
-        self.status = Status.SCREEN_CHANGE
+    # def toggle_view(self):
+    #     self.status = Status.SCREEN_CHANGE
 
-    def fade_camera(self, duration=2.0):
-        config = self.ground_config if self.view == View.SKY else self.sky_config
-        self.screen_changed = False
+    # def fade_camera(self, duration=2.0):
+    #     config = self.ground_config if self.view == View.SKY else self.sky_config
+    #     self.screen_changed = False
 
-        props = self.win.get_properties()
-        size = props.get_size()
-        buffer = self.win.make_texture_buffer('tex_buffer', *size)
-        buffer.set_clear_color_active(True)
-        buffer.set_clear_color((0.5, 0.5, 0.5, 1.0))
+    #     props = self.win.get_properties()
+    #     size = props.get_size()
+    #     buffer = self.win.make_texture_buffer('tex_buffer', *size)
+    #     buffer.set_clear_color_active(True)
+    #     buffer.set_clear_color((0.5, 0.5, 0.5, 1.0))
 
-        temp_cam = self.make_camera(buffer)
-        temp_cam.node().get_lens().set_fov(config.fov)
-        temp_cam.set_pos(config.pos)
-        temp_cam.look_at(config.look_at)
-        temp_cam.reparent_to(config.parent)
+    #     temp_cam = self.make_camera(buffer)
+    #     temp_cam.node().get_lens().set_fov(config.fov)
+    #     temp_cam.set_pos(config.pos)
+    #     temp_cam.look_at(config.look_at)
+    #     temp_cam.reparent_to(config.parent)
 
-        card = buffer.get_texture_card()
-        card.reparent_to(self.render2d)
-        card.set_transparency(TransparencyAttrib.M_alpha)
-        # card.set_transparency(TransparencyAttrib.M_multisample)
+    #     card = buffer.get_texture_card()
+    #     card.reparent_to(self.render2d)
+    #     card.set_transparency(TransparencyAttrib.M_alpha)
+    #     # card.set_transparency(TransparencyAttrib.M_multisample)
 
-        Sequence(
-            card.colorScaleInterval(duration, 1, 0, blendType='easeInOut'),
-            Func(config.switch_func),
-            Func(card.remove_node),
-            Func(self.graphicsEngine.remove_window, buffer),
-            Func(self.end_fade)
-        ).start()
+    #     Sequence(
+    #         card.colorScaleInterval(duration, 1, 0, blendType='easeInOut'),
+    #         Func(config.switch_func),
+    #         Func(card.remove_node),
+    #         Func(self.graphicsEngine.remove_window, buffer),
+    #         Func(self.end_fade)
+    #     ).start()
 
-    def view_while_moving(self):
-        """Use the keyboard to move around the city.
-        """
-        self.viewer.set_pos(self.ground_config.pos)
-        self.viewer.look_at(self.ground_config.look_at)
+    # def view_while_moving(self):
+    #     """Use the keyboard to move around the city.
+    #     """
+    #     self.viewer.set_pos(self.ground_config.pos)
+    #     self.viewer.look_at(self.ground_config.look_at)
 
-        self.camera.set_pos_hpr(Point3(0, 0, 0), Vec3(0, 0, 0))
-        self.camera.reparent_to(self.viewer)
+    #     self.camera.set_pos_hpr(Point3(0, 0, 0), Vec3(0, 0, 0))
+    #     self.camera.reparent_to(self.viewer)
 
-        self.camLens.set_fov(self.ground_config.fov)
-        self.camLens.set_near_far(self.ground_config.near, 100000)
+    #     self.camLens.set_fov(self.ground_config.fov)
+    #     self.camLens.set_near_far(self.ground_config.near, 100000)
 
-    def view_from_sky(self):
-        """View the city from above and rotate it by dragging the mouse.
-        """
-        self.camera.reparent_to(self.camera_root)
-        self.camera.set_pos(self.sky_config.pos)
-        self.camera.look_at(self.sky_config.look_at)
+    # def view_from_sky(self):
+    #     """View the city from above and rotate it by dragging the mouse.
+    #     """
+    #     self.camera.reparent_to(self.camera_root)
+    #     self.camera.set_pos(self.sky_config.pos)
+    #     self.camera.look_at(self.sky_config.look_at)
 
-        self.camLens.set_fov(self.sky_config.fov)
-        self.camLens.set_near_far(self.sky_config.near, 100000)
+    #     self.camLens.set_fov(self.sky_config.fov)
+    #     self.camLens.set_near_far(self.sky_config.near, 100000)
 
     def end_fade(self):
         self.screen_changed = True
@@ -347,16 +374,17 @@ class SkyArchipelago(ShowBase):
                     self.status = Status.ACTIVE
 
             case Status.ACTIVE:
-                if self.view == View.GROUND:
+                if self.mode == Mode.FOLLOW_CAMERA:
                     direction = self.watch_keyboard()
                     self.viewer.control(direction, dt)
 
-                if self.mouseWatcherNode.has_mouse():
-                    mouse_pos = self.mouseWatcherNode.get_mouse()
+                elif self.mode == Mode.ROTATE_CAMERA:
+                    if self.mouseWatcherNode.has_mouse():
+                        mouse_pos = self.mouseWatcherNode.get_mouse()
 
-                    if self.view == View.SKY and self.dragging:
-                        if globalClock.get_frame_time() - self.dragging_start_time >= 0.2:
-                            self.rotate_camera(mouse_pos, dt)
+                        if self.dragging:
+                            if globalClock.get_frame_time() - self.dragging_start_time >= 0.2:
+                                self.rotate_camera(mouse_pos, dt)
 
             # case Status.SCENE_CREATE:
             #     self.spinner = SpinnerDots(dot_color=(1., 1., 1., .8))

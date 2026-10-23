@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from panda3d.bullet import BulletRigidBodyNode
+from panda3d.bullet import BulletTriangleMesh, BulletTriangleMeshShape 
 from panda3d.core import NodePath, PandaNode
 from panda3d.core import Vec3, LColor, Point3
 from panda3d.core import BitMask32
@@ -137,7 +138,7 @@ class Scene(NodePath):
 
     def __init__(self):
         super().__init__(PandaNode('scene'))
-        self.islands = [island for island in self.generate_islands()]
+        self.islands = {island.node().get_name(): island for island in self.generate_islands()}
         self.generate_sky()
         self.setup_light()
 
@@ -174,6 +175,7 @@ class Scene(NodePath):
             island.set_pos_hpr(pos, hpr)
             island.reparent_to(base.render)
             base.world.attach(island.node())
+
             yield island
 
     def setup_light(self):

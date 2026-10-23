@@ -48,7 +48,7 @@ class Building(Polygon2DMixin):
         segs_cap = 3 if max_distance <= 2 else int(max_distance / 2)
 
         wall_creator = RandomPolygonalPrism(list(vertices), segs_top_cap=0, segs_bottom_cap=0)
-        belt_creator = RandomPolygonalPrism(list(vertices * 1.02), height=self.belt_h, segs_top_cap=0, segs_bottom_cap=segs_cap)
+        belt_creator = RandomPolygonalPrism(list(vertices * 1.02), height=self.belt_h, segs_top_cap=segs_cap, segs_bottom_cap=segs_cap)
 
         foundation_pos = Point3(*wall_creator.center) + parent.offset
         self.create_foundation(parent, foundation_pos, wall_creator, textures)
