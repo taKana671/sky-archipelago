@@ -1,34 +1,20 @@
 import itertools
 import sys
-from enum import Enum, auto, IntEnum
+from enum import IntEnum
 
+import yaml
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.InputStateGlobal import inputState
-from direct.interval.IntervalGlobal import Sequence, Func
-from direct.stdpy import threading
 from panda3d.bullet import BulletWorld, BulletDebugNode
-from panda3d.core import Point3, Vec3, Vec2, Quat
+from panda3d.core import Point3, Vec2, Vec3
 from panda3d.core import Quat, look_at
 from panda3d.core import NodePath
-from panda3d.core import AntialiasAttrib, TransparencyAttrib
+from panda3d.core import AntialiasAttrib
 from panda3d.core import load_prc_file_data
 
 from scene import Scene
 from viewer import Viewer, Motions
-# from spinner.spinner_dots import SpinnerDots
-
-
-# load_prc_file_data("", """
-#     textures-power-2 none
-#     gl-coordinate-system default
-#     window-title Panda3D Voronoi City3
-#     filled-wireframe-apply-shader true
-#     stm-max-views 8
-#     stm-max-chunk-count 2048
-#     framebuffer-multisample 1
-#     multisamples 2
-#     load-file-type p3assimp""")
 
 
 load_prc_file_data("", """
@@ -42,24 +28,18 @@ load_prc_file_data("", """
     multisamples 2""")
 
 
-DO_POSITIONING = False
+CONFIG_FILE = 'sky_archipelago_config.yaml'
 
 
-class Status(Enum):
+def read_config():
+    try:
+        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
 
-    SCREEN_CHANGE = auto()
-    SCREEN_WAITING = auto()
-    ACTIVE = auto()
-    SCENE_CREATE = auto()
-    SCENE_WAITING = auto()
-    SPINNER_FINISH = auto()
-    SCENE_COMPLETE = auto()
-
-
-class View(Enum):
-
-    SKY = auto()
-    GROUND = auto()
+    except FileNotFoundError:
+        print(f'No such file: {CONFIG_FILE}')
+    else:
+        return config
 
 
 class Mode(IntEnum):
@@ -75,7 +55,7 @@ class Mode(IntEnum):
 
 class SkyArchipelago(ShowBase):
 
-    def __init__(self, mode=1):
+    def __init__(self):
         super().__init__()
         self.disable_mouse()
         self.render.set_antialias(AntialiasAttrib.MAuto)
@@ -88,19 +68,15 @@ class SkyArchipelago(ShowBase):
         self.scene = Scene()
         self.scene.reparent_to(self.render)
 
-        self.mode = mode
+        config = read_config()
+        self.mode = config['mode']
         self.initialize_for_mode()
-
-
-        # self.status = Status.SCENE_CREATE
-        self.status = Status.ACTIVE
-        self.view = View.SKY
 
         self.accept('escape', sys.exit)
         self.accept('t', self.toggle_debug)
         self.accept('w', self.toggle_wireframe)
 
-        if DO_POSITIONING:
+        if config['do_positioning']:
             self.setup_positioning()
 
         self.taskMgr.add(self.update, 'update')
@@ -249,63 +225,6 @@ class SkyArchipelago(ShowBase):
         else:
             self.debug.hide()
 
-    # def toggle_view(self):
-    #     self.status = Status.SCREEN_CHANGE
-
-    # def fade_camera(self, duration=2.0):
-    #     config = self.ground_config if self.view == View.SKY else self.sky_config
-    #     self.screen_changed = False
-
-    #     props = self.win.get_properties()
-    #     size = props.get_size()
-    #     buffer = self.win.make_texture_buffer('tex_buffer', *size)
-    #     buffer.set_clear_color_active(True)
-    #     buffer.set_clear_color((0.5, 0.5, 0.5, 1.0))
-
-    #     temp_cam = self.make_camera(buffer)
-    #     temp_cam.node().get_lens().set_fov(config.fov)
-    #     temp_cam.set_pos(config.pos)
-    #     temp_cam.look_at(config.look_at)
-    #     temp_cam.reparent_to(config.parent)
-
-    #     card = buffer.get_texture_card()
-    #     card.reparent_to(self.render2d)
-    #     card.set_transparency(TransparencyAttrib.M_alpha)
-    #     # card.set_transparency(TransparencyAttrib.M_multisample)
-
-    #     Sequence(
-    #         card.colorScaleInterval(duration, 1, 0, blendType='easeInOut'),
-    #         Func(config.switch_func),
-    #         Func(card.remove_node),
-    #         Func(self.graphicsEngine.remove_window, buffer),
-    #         Func(self.end_fade)
-    #     ).start()
-
-    # def view_while_moving(self):
-    #     """Use the keyboard to move around the city.
-    #     """
-    #     self.viewer.set_pos(self.ground_config.pos)
-    #     self.viewer.look_at(self.ground_config.look_at)
-
-    #     self.camera.set_pos_hpr(Point3(0, 0, 0), Vec3(0, 0, 0))
-    #     self.camera.reparent_to(self.viewer)
-
-    #     self.camLens.set_fov(self.ground_config.fov)
-    #     self.camLens.set_near_far(self.ground_config.near, 100000)
-
-    # def view_from_sky(self):
-    #     """View the city from above and rotate it by dragging the mouse.
-    #     """
-    #     self.camera.reparent_to(self.camera_root)
-    #     self.camera.set_pos(self.sky_config.pos)
-    #     self.camera.look_at(self.sky_config.look_at)
-
-    #     self.camLens.set_fov(self.sky_config.fov)
-    #     self.camLens.set_near_far(self.sky_config.near, 100000)
-
-    def end_fade(self):
-        self.screen_changed = True
-
     def mouse_click(self):
         self.dragging = True
         self.dragging_start_time = globalClock.get_frame_time()
@@ -362,52 +281,21 @@ class SkyArchipelago(ShowBase):
     def update(self, task):
         dt = globalClock.get_dt()
 
-        match self.status:
+        match self.mode:
 
-            case Status.SCREEN_CHANGE:
-                self.fade_camera()
-                self.status = Status.SCREEN_WAITING
+            case Mode.FOLLOW_CAMERA:
+                direction = self.watch_keyboard()
+                self.viewer.control(direction, dt)
 
-            case Status.SCREEN_WAITING:
-                if self.screen_changed:
-                    self.view = View.GROUND if self.view == View.SKY else View.SKY
-                    self.status = Status.ACTIVE
+            case Mode.ROTATE_CAMERA:
+                if self.mouseWatcherNode.has_mouse():
+                    mouse_pos = self.mouseWatcherNode.get_mouse()
 
-            case Status.ACTIVE:
-                if self.mode == Mode.FOLLOW_CAMERA:
-                    direction = self.watch_keyboard()
-                    self.viewer.control(direction, dt)
+                    if self.dragging:
+                        if globalClock.get_frame_time() - self.dragging_start_time >= 0.2:
+                            self.rotate_camera(mouse_pos, dt)
 
-                elif self.mode == Mode.ROTATE_CAMERA:
-                    if self.mouseWatcherNode.has_mouse():
-                        mouse_pos = self.mouseWatcherNode.get_mouse()
-
-                        if self.dragging:
-                            if globalClock.get_frame_time() - self.dragging_start_time >= 0.2:
-                                self.rotate_camera(mouse_pos, dt)
-
-            # case Status.SCENE_CREATE:
-            #     self.spinner = SpinnerDots(dot_color=(1., 1., 1., .8))
-            #     self.scene_create_thread = threading.Thread(target=self.scene.setup_scene)
-            #     self.scene_create_thread.start()
-            #     self.status = Status.SCENE_WAITING
-
-            # case Status.SCENE_WAITING:
-            #     self.spinner.update()
-
-            #     if not self.scene_create_thread.is_alive():
-            #         self.status = Status.SPINNER_FINISH
-
-            # case Status.SPINNER_FINISH:
-            #     if self.spinner.finish():
-            #         self.spinner.destroy()
-            #         self.status = Status.SCENE_COMPLETE
-
-            # case Status.SCENE_COMPLETE:
-            #     self.scene.reparent_to(self.render)
-            #     self.status = Status.ACTIVE
         self.scene.sky.update(self.camera.get_pos(self.render))
-
         self.world.do_physics(dt)
         return task.cont
 

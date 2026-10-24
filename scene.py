@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 from panda3d.bullet import BulletRigidBodyNode
-from panda3d.bullet import BulletTriangleMesh, BulletTriangleMeshShape 
 from panda3d.core import NodePath, PandaNode
 from panda3d.core import Vec3, LColor, Point3
 from panda3d.core import BitMask32
