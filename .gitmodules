@@ -7,3 +7,6 @@
 [submodule "texture_generator"]
 	path = texture_generator
 	url = https://github.com/taKana671/texture-generator.git
+[submodule "noise"]
+	path = noise
+	url = https://github.com/taKana671/NoiseTexture.git
