@@ -6,7 +6,7 @@ In this repository, I attempted to procedurally generate floating islands. Using
 
 # Future Challenges
 
-Despite repeated trial and error, I was unable to align the top and bottom terrain layers perfectly without a lot of gaps. Additionally, the edges ended up jagged, which doesn’t look very nice when viewed up close.
+Despite repeated trial and error, I was unable to align the top and bottom terrain layers perfectly without any gaps. Additionally, the edges ended up jagged, which doesn’t look very nice when viewed up close.
 I’d like to find a way to eliminate these gaps and achieve a clean finish along the edges.
 If anyone knows how to do this, I’d greatly appreciate your help.
 
