@@ -8,7 +8,7 @@
 
 # sky-archipelago
 
-In this repository, I attempted to procedurally generate floating islands. Using panda3D’s GeoMipTerrain, I created two terrain meshes from heightmap images. I then overlaid the two islands, with one flipped upside down. For educational purposes, I also wrote code to create the same floating islands using ShaderTerrainMesh. The buildings and vegetation on the islands were generated using the same method as in  [VoronoiCity3](https://github.com/taKana671/VoronoiCity3.git),. The sea of clouds was rendered by applying a shader to a flat 3D object.
+In this repository, I attempted to procedurally generate floating islands. Using panda3D’s GeoMipTerrain, I created two terrain meshes from heightmap images. I then overlaid the two islands, with one flipped upside down. To learn about ShaderTerrainMesh, I'm also writing code that uses ShaderTerrainMesh to generate the same floating islands.The buildings and vegetation on the islands were generated using the same method as in  [VoronoiCity3](https://github.com/taKana671/VoronoiCity3.git),. The sea of clouds was rendered by applying a shader to a flat 3D object.
 
 <img width="795" height="622" alt="Image" src="https://github.com/user-attachments/assets/937aa374-21c9-48fb-86b4-cf69b2933428" />
 
