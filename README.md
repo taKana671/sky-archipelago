@@ -1,12 +1,20 @@
+![badge](https://img.shields.io/badge/python-3.13-orange.svg)
+![badge](https://img.shields.io/badge/Panda3D-1.10.16-green.svg)
+![badge](https://img.shields.io/badge/Cython-3.2.3-green.svg)
+![badge](https://img.shields.io/badge/numpy-2.2.6-green.svg)
+![badge](https://img.shields.io/badge/scipy-1.16.2-green.svg)
+![badge](https://img.shields.io/badge/shapely-2.1.2-green.svg)
+
+
 # sky-archipelago
 
-In this repository, I attempted to procedurally generate floating islands. Using panda3D’s GeoMipTerrain, I created two terrain meshes from heightmap images. I then overlaid the two islands, with one flipped upside down. For educational purposes, I also wrote code to create the same floating islands using ShaderTerrainMesh. The buildings and vegetation on the islands were generated using the same method as in  [VoronoiCity3](https://github.com/taKana671/VoronoiCity3.git),. The sea of clouds was rendered by applying a shader to a flat 3D object.
+In this repository, I attempted to procedurally generate floating islands. Using panda3D’s GeoMipTerrain, I created two terrain meshes from heightmap images. I then overlaid the two islands, with one flipped upside down. To learn about ShaderTerrainMesh, I'm also writing code that uses ShaderTerrainMesh to generate the same floating islands.The buildings and vegetation on the islands were generated using the same method as in  [VoronoiCity3](https://github.com/taKana671/VoronoiCity3.git),. The sea of clouds was rendered by applying a shader to a flat 3D object.
 
 <img width="795" height="622" alt="Image" src="https://github.com/user-attachments/assets/937aa374-21c9-48fb-86b4-cf69b2933428" />
 
 # Future Challenges
 
-Despite repeated trial and error, I was unable to align the top and bottom terrain layers perfectly without a lot of gaps. Additionally, the edges ended up jagged, which doesn’t look very nice when viewed up close.
+Despite repeated trial and error, I was unable to align the top and bottom terrain layers perfectly without any gaps. Additionally, the edges ended up jagged, which doesn’t look very nice when viewed up close.
 I’d like to find a way to eliminate these gaps and achieve a clean finish along the edges.
 If anyone knows how to do this, I’d greatly appreciate your help.
 
