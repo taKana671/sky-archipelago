@@ -1,0 +1,3 @@
+[submodule "mask"]
+	path = mask
+	url = https://github.com/taKana671/MaskImageGenerator.git
